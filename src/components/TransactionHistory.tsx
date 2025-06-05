@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../context/WalletContext';
 import { TransactionInfo } from '../types';
+import { getTransactionHistory } from '../utils/etherscan';
+import { NETWORK_CONFIGS } from '../config/network';
 
 const TransactionHistory: React.FC = () => {
   const [transactions, setTransactions] = useState<TransactionInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-
   const { wallet, network } = useWallet();
   const navigate = useNavigate();
 
@@ -20,15 +21,16 @@ const TransactionHistory: React.FC = () => {
 
   const loadTransactions = async () => {
     if (!wallet) return;
-    
+        
     try {
       setError('');
-      // Временно используем пустой массив, пока не реализуем API
-      const txs: TransactionInfo[] = [];
-      setTransactions(txs);
+      setIsLoading(true);
+      
+      const txHistory = await getTransactionHistory(wallet.address, network);
+      setTransactions(txHistory);
     } catch (error: any) {
       console.error('Error loading transactions:', error);
-      setError('Failed to load transaction history');
+      setError(error.message || 'Failed to load transaction history');
     } finally {
       setIsLoading(false);
     }
@@ -51,17 +53,20 @@ const TransactionHistory: React.FC = () => {
   };
 
   const formatAddress = (address: string) => {
+    if (!address) return 'Unknown';
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
+  const formatValue = (value: string) => {
+    const num = parseFloat(value);
+    if (num === 0) return '0';
+    if (num < 0.000001) return num.toExponential(3);
+    return num.toFixed(6);
+  };
+
   const openTransaction = (hash: string) => {
-    const baseUrls = {
-      mainnet: 'https://etherscan.io/tx/',
-      goerli: 'https://goerli.etherscan.io/tx/',
-      sepolia: 'https://sepolia.etherscan.io/tx/'
-    };
-        
-    const url = baseUrls[network] + hash;
+    const networkConfig = NETWORK_CONFIGS[network];
+    const url = `${networkConfig.blockExplorer}/tx/${hash}`;
     window.open(url, '_blank');
   };
 
@@ -76,6 +81,15 @@ const TransactionHistory: React.FC = () => {
       default:
         return '❓';
     }
+  };
+
+  const formatGasInfo = (gasUsed?: string, gasPrice?: string) => {
+    if (!gasUsed || !gasPrice) return null;
+    
+    const gasUsedNum = parseInt(gasUsed);
+    const gasPriceGwei = parseFloat(gasPrice) / 1e9;
+    
+    return `${gasUsedNum.toLocaleString()} × ${gasPriceGwei.toFixed(2)} Gwei`;
   };
 
   if (isLoading) {
@@ -102,12 +116,12 @@ const TransactionHistory: React.FC = () => {
 
       {error && (
         <div>
-          {error}
+          <p>❌ {error}</p>
           <button onClick={loadTransactions}>Retry</button>
         </div>
       )}
 
-      {transactions.length === 0 ? (
+      {transactions.length === 0 && !error ? (
         <div>
           <p>No transactions found</p>
           <p>Send your first transaction to see it here</p>
@@ -115,39 +129,62 @@ const TransactionHistory: React.FC = () => {
       ) : (
         <div>
           {transactions.map((tx) => (
-            <div key={tx.hash}>
-              <div>
+            <div key={tx.hash} style={{ 
+              border: '1px solid #ccc', 
+              margin: '10px 0', 
+              padding: '15px', 
+              borderRadius: '8px',
+              backgroundColor: tx.type === 'received' ? '#f0f8f0' : '#f8f0f0'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <span>{tx.type === 'sent' ? '↗️ Sent' : '↙️ Received'}</span>
-                  <span>{tx.type === 'sent' ? '-' : '+'}{parseFloat(tx.value).toFixed(6)} ETH</span>
-                </div>
-                                
-                <div>
-                  <div>
-                    <span>From: {formatAddress(tx.from)}</span>
-                    <span>To: {tx.to ? formatAddress(tx.to) : 'Contract Creation'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontWeight: 'bold' }}>
+                      {tx.type === 'sent' ? '↗️ Sent' : '↙️ Received'}
+                    </span>
+                    <span style={{ 
+                      fontWeight: 'bold', 
+                      color: tx.type === 'sent' ? '#d32f2f' : '#2e7d32' 
+                    }}>
+                      {tx.type === 'sent' ? '-' : '+'}{formatValue(tx.value)} ETH
+                    </span>
                   </div>
-                                    
-                  <div>
+                  
+                  <div style={{ margin: '8px 0', fontSize: '14px', color: '#666' }}>
+                    <div>From: {formatAddress(tx.from)}</div>
+                    <div>To: {tx.to ? formatAddress(tx.to) : 'Contract Creation'}</div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#888' }}>
                     <span>{formatDate(tx.timestamp)}</span>
                     <span>{getStatusIcon(tx.status)} {tx.status || 'unknown'}</span>
                   </div>
                 </div>
-              </div>
-              
-              <div>
-                <button onClick={() => openTransaction(tx.hash)} title="View on block explorer">
+                
+                <button 
+                  onClick={() => openTransaction(tx.hash)} 
+                  title="View on block explorer"
+                  style={{ 
+                    background: 'none', 
+                    border: '1px solid #ccc', 
+                    borderRadius: '4px', 
+                    padding: '5px 10px',
+                    cursor: 'pointer'
+                  }}
+                >
                   🔗
                 </button>
               </div>
               
               {tx.gasUsed && tx.gasPrice && (
-                <div>
-                  <small>
-                    Gas: {parseInt(tx.gasUsed).toLocaleString()} × {(parseFloat(tx.gasPrice) / 1e9).toFixed(2)} Gwei
-                  </small>
+                <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                  Gas: {formatGasInfo(tx.gasUsed, tx.gasPrice)}
                 </div>
               )}
+              
+              <div style={{ marginTop: '8px', fontSize: '11px', color: '#999', fontFamily: 'monospace' }}>
+                {tx.hash.slice(0, 20)}...{tx.hash.slice(-10)}
+              </div>
             </div>
           ))}
         </div>
