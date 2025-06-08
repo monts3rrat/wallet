@@ -39,7 +39,6 @@ const MainPage: React.FC<MainPageProps> = ({ onWalletLocked }) => {
     if (wallet) {
       try {
         await navigator.clipboard.writeText(wallet.address);
-        // Можно добавить уведомление об успешном копировании
       } catch (error) {
         console.error('Failed to copy address:', error);
       }
@@ -98,7 +97,6 @@ const MainPage: React.FC<MainPageProps> = ({ onWalletLocked }) => {
         </button>
       </div>
 
-      {/* Network Selector */}
       <div style={{
         marginBottom: '20px',
         padding: '10px',

@@ -1,31 +1,23 @@
+// src\components\UnlockWallet.tsx
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ethers } from 'ethers';
-import { getWalletData } from '../utils/storage';
-import { decryptPrivateKey } from '../utils/crypto';
-import { createSession } from '../utils/session';
+import { useWallet } from '../context/WalletContext';
 
 const UnlockWallet: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const { unlockWallet } = useWallet();
   const navigate = useNavigate();
 
-  const unlockWallet = async (e: React.FormEvent) => {
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
     try {
-      const storedWallet = await getWalletData();
-      if (!storedWallet) {
-        throw new Error('No wallet found');
-      }
-
-      const privateKey = await decryptPrivateKey(storedWallet.encryptedPrivateKey, password);
-      const ethersWallet = new ethers.Wallet(privateKey);
-
-      await createSession(ethersWallet);
+      await unlockWallet(password);
       navigate('/wallet');
     } catch (error: any) {
       console.error('Error unlocking wallet:', error);
@@ -40,8 +32,7 @@ const UnlockWallet: React.FC = () => {
       <div className="unlock-form">
         <h2>Unlock Wallet</h2>
         <p>Enter your password to unlock your wallet</p>
-
-        <form onSubmit={unlockWallet}>
+        <form onSubmit={handleUnlock}>
           <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
@@ -53,9 +44,7 @@ const UnlockWallet: React.FC = () => {
               required
             />
           </div>
-
           {error && <div className="error-message">{error}</div>}
-
           <button
             type="submit"
             disabled={isLoading || !password}
@@ -64,7 +53,6 @@ const UnlockWallet: React.FC = () => {
             {isLoading ? 'Unlocking...' : 'Unlock Wallet'}
           </button>
         </form>
-
         <div className="unlock-actions">
           <button 
             onClick={() => navigate('/')}

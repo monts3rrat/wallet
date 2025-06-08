@@ -2,8 +2,8 @@ import { TransactionInfo, NetworkType } from '../types';
 import { backgroundFetch } from './backgroundFetch';
 
 const ETHERSCAN_API_KEYS = {
-  mainnet: 'QZBXYCHZ1F7SR7XF941AP63GE12D91H4DS', // Замените на ваш API ключ
-  sepolia: 'QZBXYCHZ1F7SR7XF941AP63GE12D91H4DS'  // Замените на ваш API ключ
+  mainnet: '', // вставь баля ключики сюды
+  sepolia: '' // вставь баля ключики сюды
 };
 
 const ETHERSCAN_BASE_URLS = {
@@ -24,10 +24,8 @@ export const getTransactionHistory = async (
       return [];
     }
 
-    // Получаем обычные транзакции
     const normalTxUrl = `${baseUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=1&offset=50&sort=desc&apikey=${apiKey}`;
     
-    // Получаем внутренние транзакции
     const internalTxUrl = `${baseUrl}?module=account&action=txlistinternal&address=${address}&startblock=0&endblock=99999999&page=1&offset=50&sort=desc&apikey=${apiKey}`;
 
     const [normalResponse, internalResponse] = await Promise.all([
@@ -42,7 +40,6 @@ export const getTransactionHistory = async (
     const normalTxs = normalResponse.result || [];
     const internalTxs = internalResponse.status === '1' ? internalResponse.result || [] : [];
 
-    // Объединяем и обрабатываем транзакции
     const allTxs = [...normalTxs, ...internalTxs];
     
     const processedTxs: TransactionInfo[] = allTxs.map((tx: any) => {
@@ -62,7 +59,6 @@ export const getTransactionHistory = async (
       };
     });
 
-    // Удаляем дубликаты по хешу и сортируем по времени
     const uniqueTxs = processedTxs.filter((tx, index, self) => 
       index === self.findIndex(t => t.hash === tx.hash)
     );

@@ -1,3 +1,5 @@
+// src\utils\storage.ts
+
 import { StoredWalletData } from '../types';
 
 const WALLET_KEY = 'wallet_data';
@@ -8,7 +10,6 @@ export const getStorageData = async <T = any>(keys: string | string[]): Promise<
       const result = await chrome.storage.local.get(keys);
       return result as T;
     } else {
-      // Fallback to localStorage for development
       if (typeof keys === 'string') {
         const item = localStorage.getItem(keys);
         return item ? JSON.parse(item) : null;
@@ -27,13 +28,11 @@ export const getStorageData = async <T = any>(keys: string | string[]): Promise<
   }
 };
 
-// Добавьте недостающие функции
 export const setStorageData = async (data: { [key: string]: any }): Promise<void> => {
   try {
     if (typeof chrome !== 'undefined' && chrome.storage) {
       await chrome.storage.local.set(data);
     } else {
-      // Fallback to localStorage for development
       Object.keys(data).forEach(key => {
         localStorage.setItem(key, JSON.stringify(data[key]));
       });

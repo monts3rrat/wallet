@@ -49,8 +49,10 @@ export interface WalletContextType {
   balance: string;
   network: NetworkType;
   isLoading: boolean;
+  hasStoredWallet: boolean;
   createWallet: (privateKey: string, password: string) => Promise<void>;
   importWallet: (privateKey: string, password: string) => Promise<void>;
+  unlockWallet: (password: string) => Promise<void>;
   switchNetwork: (network: NetworkType) => Promise<void>;
   refreshBalance: () => Promise<void>;
   logout: () => void;

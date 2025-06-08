@@ -5,7 +5,6 @@ export const encryptPrivateKey = async (privateKey: string, password: string): P
   const data = encoder.encode(privateKey);
   const passwordKey = encoder.encode(password);
 
-  // Create a key from password
   const key = await crypto.subtle.importKey(
     'raw',
     passwordKey,
@@ -14,10 +13,8 @@ export const encryptPrivateKey = async (privateKey: string, password: string): P
     ['deriveBits', 'deriveKey']
   );
 
-  // Generate salt
   const salt = crypto.getRandomValues(new Uint8Array(16));
 
-  // Derive encryption key
   const derivedKey = await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
@@ -31,17 +28,13 @@ export const encryptPrivateKey = async (privateKey: string, password: string): P
     ['encrypt', 'decrypt']
   );
 
-  // Generate IV
   const iv = crypto.getRandomValues(new Uint8Array(12));
 
-  // Encrypt
   const encrypted = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv: iv },
     derivedKey,
     data
   );
-
-  // Combine salt + iv + encrypted data
   const result = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
   result.set(salt, 0);
   result.set(iv, salt.length);
@@ -53,7 +46,6 @@ export const encryptPrivateKey = async (privateKey: string, password: string): P
 export const decryptPrivateKey = async (encryptedData: string, password: string): Promise<string> => {
   const data = new Uint8Array(atob(encryptedData).split('').map(c => c.charCodeAt(0)));
   
-  // Extract salt, iv, and encrypted data
   const salt = data.slice(0, 16);
   const iv = data.slice(16, 28);
   const encrypted = data.slice(28);
@@ -61,7 +53,6 @@ export const decryptPrivateKey = async (encryptedData: string, password: string)
   const encoder = new TextEncoder();
   const passwordKey = encoder.encode(password);
 
-  // Create key from password
   const key = await crypto.subtle.importKey(
     'raw',
     passwordKey,
@@ -70,7 +61,6 @@ export const decryptPrivateKey = async (encryptedData: string, password: string)
     ['deriveBits', 'deriveKey']
   );
 
-  // Derive decryption key
   const derivedKey = await crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
@@ -84,7 +74,6 @@ export const decryptPrivateKey = async (encryptedData: string, password: string)
     ['encrypt', 'decrypt']
   );
 
-  // Decrypt
   const decrypted = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: iv },
     derivedKey,

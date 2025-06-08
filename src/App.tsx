@@ -1,3 +1,5 @@
+// src\App.tsx
+
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { WalletProvider, useWallet } from './context/WalletContext';
@@ -9,7 +11,7 @@ import SendTransaction from './components/SendTransaction';
 import TransactionHistory from './components/TransactionHistory';
 
 const AppRoutes: React.FC = () => {
-  const { wallet, isLoading } = useWallet();
+  const { wallet, isLoading, hasStoredWallet } = useWallet();
 
   if (isLoading) {
     return (
@@ -23,12 +25,18 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {!wallet ? (
-        <>
-          <Route path="/" element={<CreateWallet />} />
-          <Route path="/import" element={<ImportWallet />} />
-          <Route path="/unlock" element={<UnlockWallet />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </>
+        hasStoredWallet ? (
+          <>
+            <Route path="/unlock" element={<UnlockWallet />} />
+            <Route path="*" element={<Navigate to="/unlock" replace />} />
+          </>
+        ) : (
+          <>
+            <Route path="/" element={<CreateWallet />} />
+            <Route path="/import" element={<ImportWallet />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </>
+        )
       ) : (
         <>
           <Route path="/wallet" element={<Wallet />} />

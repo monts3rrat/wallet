@@ -16,6 +16,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const [balance, setBalance] = useState('0');
   const [network, setNetwork] = useState<NetworkType>('sepolia');
   const [isLoading, setIsLoading] = useState(true);
+  const [hasStoredWallet, setHasStoredWallet] = useState(false);
 
   useEffect(() => {
     initializeWallet();
@@ -29,20 +30,14 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
   const initializeWallet = async () => {
     try {
-      // Check for active session first
-      const session = await getSession();
-      if (session) {
-        setWallet(session.wallet);
-        setIsLoading(false);
-        return;
-      }
-
-      // Check for stored wallet
       const storedWallet = await getWalletData();
+      setHasStoredWallet(!!storedWallet);
+
       if (storedWallet) {
-        // Wallet exists but needs to be unlocked
-        setIsLoading(false);
-        return;
+        const session = await getSession();
+        if (session) {
+          setWallet(session.wallet);
+        }
       }
     } catch (error) {
       console.error('Error initializing wallet:', error);
@@ -53,14 +48,14 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const createWallet = async (privateKey: string, password: string): Promise<void> => {
     try {
       const ethersWallet = new ethers.Wallet(privateKey);
-      
+            
       const walletData: WalletData = {
         address: ethersWallet.address,
         privateKey: ethersWallet.privateKey
       };
 
       const encryptedPrivateKey = await encryptPrivateKey(privateKey, password);
-      
+            
       await saveWalletData({
         address: walletData.address,
         encryptedPrivateKey
@@ -68,6 +63,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
       await createSession(ethersWallet);
       setWallet(walletData);
+      setHasStoredWallet(true);
     } catch (error) {
       console.error('Error creating wallet:', error);
       throw error;
@@ -77,13 +73,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const importWallet = async (privateKeyOrMnemonic: string, password: string): Promise<void> => {
     try {
       let ethersWallet: ethers.Wallet | ethers.HDNodeWallet;
-      
-      // Проверяем, является ли это мнемоникой или приватным ключом
+            
       if (privateKeyOrMnemonic.split(' ').length >= 12) {
-        // Это мнемоника
         ethersWallet = ethers.Wallet.fromPhrase(privateKeyOrMnemonic);
       } else {
-        // Это приватный ключ
         ethersWallet = new ethers.Wallet(privateKeyOrMnemonic);
       }
 
@@ -91,12 +84,12 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         address: ethersWallet.address,
         privateKey: ethersWallet.privateKey,
         ...(ethersWallet instanceof ethers.HDNodeWallet && ethersWallet.mnemonic?.phrase 
-          ? { mnemonic: ethersWallet.mnemonic.phrase } 
+          ? { mnemonic: ethersWallet.mnemonic.phrase }
           : {})
       };
 
       const encryptedPrivateKey = await encryptPrivateKey(ethersWallet.privateKey, password);
-      
+            
       await saveWalletData({
         address: walletData.address,
         encryptedPrivateKey,
@@ -105,8 +98,41 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
       await createSession(ethersWallet);
       setWallet(walletData);
+      setHasStoredWallet(true);
     } catch (error) {
       console.error('Error importing wallet:', error);
+      throw error;
+    }
+  };
+
+  const unlockWallet = async (password: string): Promise<void> => {
+    try {
+      const storedWallet = await getWalletData();
+      if (!storedWallet) {
+        throw new Error('No wallet found');
+      }
+
+      const { decryptPrivateKey } = await import('../utils/crypto');
+      const privateKey = await decryptPrivateKey(storedWallet.encryptedPrivateKey, password);
+      
+      let ethersWallet: ethers.Wallet | ethers.HDNodeWallet;
+      
+      if (storedWallet.mnemonic) {
+        ethersWallet = ethers.Wallet.fromPhrase(storedWallet.mnemonic);
+      } else {
+        ethersWallet = new ethers.Wallet(privateKey);
+      }
+
+      const walletData: WalletData = {
+        address: ethersWallet.address,
+        privateKey: ethersWallet.privateKey,
+        ...(storedWallet.mnemonic ? { mnemonic: storedWallet.mnemonic } : {})
+      };
+
+      await createSession(ethersWallet);
+      setWallet(walletData);
+    } catch (error) {
+      console.error('Error unlocking wallet:', error);
       throw error;
     }
   };
@@ -120,7 +146,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 
   const refreshBalance = async (): Promise<void> => {
     if (!wallet) return;
-    
+        
     try {
       const networkConfig = NETWORK_CONFIGS[network];
       const currentBalance = await getBalance(wallet.address, networkConfig.rpcUrl);
@@ -142,8 +168,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     balance,
     network,
     isLoading,
+    hasStoredWallet,
     createWallet,
     importWallet,
+    unlockWallet,
     switchNetwork,
     refreshBalance,
     logout

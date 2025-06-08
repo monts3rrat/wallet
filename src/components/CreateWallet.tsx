@@ -38,7 +38,6 @@ const CreateWallet: React.FC = () => {
     setError('');
 
     try {
-      // Create wallet with mnemonic
       const newWallet = ethers.Wallet.createRandom();
       const walletMnemonic = newWallet.mnemonic?.phrase || '';
       
@@ -46,7 +45,6 @@ const CreateWallet: React.FC = () => {
       setMnemonic(walletMnemonic);
       setMnemonicWords(walletMnemonic.split(' '));
       
-      // Generate random indices for confirmation
       const indices: number[] = [];
       while (indices.length < 3) {
         const randomIndex = Math.floor(Math.random() * 12);

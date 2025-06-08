@@ -1,4 +1,3 @@
-// Utility for making HTTP requests that work in extension environment
 export const backgroundFetch = async (url: string, options?: RequestInit): Promise<any> => {
   try {
     const response = await fetch(url, {
